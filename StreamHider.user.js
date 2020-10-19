@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name       Hide YouTube Streams
 // @version    0.1
-// @description Hides streams and premiers from the YouTube subscriptions page.
+// @description A configurable user script for hiding streams and premiers from your YouTube subscriptions feed.
 // @match      http://www.youtube.com/feed/subscriptions*
 // @match      http://youtube.com/feed/subscriptions*
 // @match      https://www.youtube.com/feed/subscriptions*
