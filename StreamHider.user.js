@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name       Hide YouTube Streams
 // @version    0.1
-// @description Hides streams (and premiers) from the YouTube subscriptions page.
+// @description Hides streams and premiers from the YouTube subscriptions page.
 // @match      http://www.youtube.com/feed/subscriptions*
 // @match      http://youtube.com/feed/subscriptions*
 // @match      https://www.youtube.com/feed/subscriptions*
@@ -12,20 +12,22 @@
 // ==/UserScript==
 
 // Config
-// Please set the values to your liking! Recognised values are 'true' and 'false' (without the quotes)
-// Note: your configs will be overwritten if you download an update for this script
 
+// Please set the config values to your liking!
+// Recognised values are 'true' and 'false'(without the quotes)
+// Setting values to 'true' will cause that type of video to be hidden
+// Note: your configs will be overwritten if you download an update for this script
 let hideConfig = {
     "scheduled": {
-        "streams": true, 
-        "premiers": true
+        "streams": false, 
+        "premiers": false
     }, 
     "live": {
-        "streams": true, 
-        "premiers": true
+        "streams": false, 
+        "premiers": false
     }, 
     "finished": {
-        "streams": true
+        "streams": false
         // Finished premiers are just regular videos
     }
 };
@@ -127,11 +129,11 @@ function hideNewHideables(newMutations) {
         let videos = videoSection.querySelectorAll("ytd-grid-video-renderer");
         // Collect hideable streams/premiers
         let hideableVideos = [];
-        if (hideConfig.scheduled.streams === true) hideableVideos = hideableVideos.concat(getScheduledStreams(videos));
-        if (hideConfig.scheduled.premiers === true) hideableVideos = hideableVideos.concat(getScheduledPremiers(videos));
-        if (hideConfig.live.streams === true) hideableVideos = hideableVideos.concat(getLiveStreams(videos));
-        if (hideConfig.live.premiers === true) hideableVideos = hideableVideos.concat(getLivePremiers(videos));
-        if (hideConfig.finished.streams === true) hideableVideos = hideableVideos.concat(getFinishedStreams(videos));
+        if (hideConfig.scheduled.streams) hideableVideos = hideableVideos.concat(getScheduledStreams(videos));
+        if (hideConfig.scheduled.premiers) hideableVideos = hideableVideos.concat(getScheduledPremiers(videos));
+        if (hideConfig.live.streams) hideableVideos = hideableVideos.concat(getLiveStreams(videos));
+        if (hideConfig.live.premiers) hideableVideos = hideableVideos.concat(getLivePremiers(videos));
+        if (hideConfig.finished.streams) hideableVideos = hideableVideos.concat(getFinishedStreams(videos));
         // Hide
         if (hideableVideos.length === videos.length) {
             // Hide hideable streams/premiers
@@ -147,7 +149,7 @@ function hideNewHideables(newMutations) {
 
 // main
 
-// Call the main method when new video sections are loaded
+// Call hideNewHideables when new video sections are loaded
 new MutationObserver(hideNewHideables).observe(
     document.querySelector('div#contents'), {
         childList: true,
@@ -157,5 +159,5 @@ new MutationObserver(hideNewHideables).observe(
     }
 );
 
-// Call the main method when the script loads
+// Call hideNewHideables when the script loads
 hideNewHideables();
