@@ -11,6 +11,10 @@
 // @namespace https://greasyfork.org/users/696211-ctl2
 // ==/UserScript==
 
+// Config
+// Please set the values to your liking! Recognised values are 'true' and 'false' (without the quotes)
+// Note: your configs will be overwritten if you download an update for this script
+
 let hideConfig = {
     "scheduled": {
         "streams": true, 
@@ -25,6 +29,8 @@ let hideConfig = {
         // Finished premiers are just regular videos
     }
 };
+
+// Helper methods
 
 function getFilteredCollection(collection, predicate) {
     let filteredCollection = [];
@@ -50,7 +56,7 @@ function hide(element) {
     element.style.display = "none";
 }
 
-// Hide scheduled
+// Scheduled collectors
 
 function getScheduledStreams(videos) {
     return getFilteredCollection(
@@ -66,7 +72,7 @@ function getScheduledPremiers(videos) {
     );
 }
 
-// Hide live
+// Live collectors
 
 function getLiveStreams(videos) {
     return getFilteredCollection(
@@ -92,7 +98,7 @@ function getLivePremiers(videos) {
     );
 }
 
-// Hide finished
+// Finished collectors
 
 function getFinishedStreams(videos) {
     return getFilteredCollection(
@@ -101,11 +107,11 @@ function getFinishedStreams(videos) {
     );
 }
 
-// Hide controller
+// Hider
 
-function hideStreams(newMutations) {
+function hideNewHideables(newMutations) {
     // Collect new video sections
-    let videoSections; // Today, This week, This month, ...
+    let videoSections; // Today, This week, This month, Older, ...
     if (newMutations === undefined) {
         videoSections = document.querySelectorAll("ytd-item-section-renderer");
     } else {
@@ -119,18 +125,19 @@ function hideStreams(newMutations) {
     for (let videoSection of videoSections) {
         // Collect new videos
         let videos = videoSection.querySelectorAll("ytd-grid-video-renderer");
+        // Collect hideable streams/premiers
         let hideableVideos = [];
-        // Hide scheduled
         if (hideConfig.scheduled.streams === true) hideableVideos = hideableVideos.concat(getScheduledStreams(videos));
         if (hideConfig.scheduled.premiers === true) hideableVideos = hideableVideos.concat(getScheduledPremiers(videos));
-        // Hide live
         if (hideConfig.live.streams === true) hideableVideos = hideableVideos.concat(getLiveStreams(videos));
         if (hideConfig.live.premiers === true) hideableVideos = hideableVideos.concat(getLivePremiers(videos));
-        // Hide finished
         if (hideConfig.finished.streams === true) hideableVideos = hideableVideos.concat(getFinishedStreams(videos));
+        // Hide
         if (hideableVideos.length === videos.length) {
+            // Hide hideable streams/premiers
             hide(videoSection);
         } else {
+            // Hide full section (including title)
             for (let hideableVideo of hideableVideos) {
                 hide(hideableVideo);
             }
@@ -138,10 +145,10 @@ function hideStreams(newMutations) {
     }
 }
 
-// Call the hideStreams function when new videos are loaded
+// main
 
-var observer = new MutationObserver(hideStreams);
-observer.observe(
+// Call the main method when new video sections are loaded
+new MutationObserver(hideNewHideables).observe(
     document.querySelector('div#contents'), {
         childList: true,
         subtree: false,
@@ -150,4 +157,5 @@ observer.observe(
     }
 );
 
-hideStreams();
+// Call the main method when the script loads
+hideNewHideables();
