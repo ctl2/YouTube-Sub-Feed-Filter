@@ -1,14 +1,12 @@
 // ==UserScript==
-// @name       Hide YouTube Streams
-// @version    0.1
-// @description A configurable user script for hiding streams and premiers from your YouTube subscriptions feed.
-// @match      http://www.youtube.com/feed/subscriptions*
-// @match      http://youtube.com/feed/subscriptions*
-// @match      https://www.youtube.com/feed/subscriptions*
-// @match      https://youtube.com/feed/subscriptions*
-// @license    GPLv3 - http://www.gnu.org/licenses/gpl-3.0.en.html
-// @copyright  callumtylerlatham@gmail.com
-// @namespace https://greasyfork.org/users/696211-ctl2
+// @name        YouTube Stream Hider
+// @version     0.1
+// @description Hides streams and premiers from your YouTube subscriptions feed.
+// @match       *://www.youtube.com/*
+// @match       *://youtube.com/*
+// @license     GPLv3 - http://www.gnu.org/licenses/gpl-3.0.en.html
+// @copyright   callumtylerlatham@gmail.com
+// @namespace   https://greasyfork.org/users/696211-ctl2
 // ==/UserScript==
 
 // Config
@@ -32,7 +30,7 @@ let hideConfig = {
     }
 };
 
-// Helper methods
+// Collector helpers
 
 function getFilteredCollection(collection, predicate) {
     let filteredCollection = [];
@@ -52,10 +50,6 @@ function getLiveBadge(video) {
 
 function getMetadataLine(video) {
     return video.querySelector("#metadata-line");
-}
-
-function hide(element) {
-    element.style.display = "none";
 }
 
 // Scheduled collectors
@@ -105,8 +99,17 @@ function getLivePremiers(videos) {
 function getFinishedStreams(videos) {
     return getFilteredCollection(
         videos,
-        video => firstWordEquals(getMetadataLine(video).children[1], "Streamed")
+        video => {
+          let metaDataLine = getMetadataLine(video);
+          return metaDataLine.children.length > 1 && firstWordEquals(metaDataLine.children[1], "Streamed")
+        }
     );
+}
+
+// Hider helpers
+
+function hide(element) {
+    element.remove();
 }
 
 // Hider
@@ -124,6 +127,7 @@ function hideNewHideables(newMutations) {
             }
         }
     }
+    // Hide hideables
     for (let videoSection of videoSections) {
         // Collect new videos
         let videos = videoSection.querySelectorAll("ytd-grid-video-renderer");
@@ -136,10 +140,10 @@ function hideNewHideables(newMutations) {
         if (hideConfig.finished.streams) hideableVideos = hideableVideos.concat(getFinishedStreams(videos));
         // Hide
         if (hideableVideos.length === videos.length) {
-            // Hide hideable streams/premiers
+            // Hide full section (including title)
             hide(videoSection);
         } else {
-            // Hide full section (including title)
+            // Hide hideable videos
             for (let hideableVideo of hideableVideos) {
                 hide(hideableVideo);
             }
@@ -147,17 +151,58 @@ function hideNewHideables(newMutations) {
     }
 }
 
-// main
+// Main helpers
 
-// Call hideNewHideables when new video sections are loaded
-new MutationObserver(hideNewHideables).observe(
-    document.querySelector('div#contents'), {
-        childList: true,
-        subtree: false,
-        attributes: false,
-        characterData: false
+function isSubscriptionsPage() {
+    return new RegExp(".*youtube.com/feed/subscriptions.*").test(document.URL);
+}
+
+function trySetPageLoaderOnclick(pageLoader, cssSelector) {
+    if (pageLoader) {
+        if (pageLoader.matches) {
+            if (pageLoader.matches(cssSelector)) {
+                pageLoader.onclick = () => location.assign("https://www.youtube.com/feed/subscriptions");
+                return true;
+            }
+        }
     }
-);
+    return false;
+}
 
-// Call hideNewHideables when the script loads
-hideNewHideables();
+function simplifyPageLoader(cssSelector) {
+    if (!trySetPageLoaderOnclick(document.querySelector(cssSelector), cssSelector)) {
+        let pageLoaderObserver = new MutationObserver((newMutations) => {
+            for (let mutation of newMutations) {
+                for (let node of mutation.addedNodes) {
+                    if (trySetPageLoaderOnclick(node, cssSelector)) {
+                        // If button has been found, stop searching
+                        pageLoaderObserver.disconnect();
+                        return;
+                    }
+                }
+            }
+        });
+        pageLoaderObserver.observe(document.querySelector("ytd-app"), {
+            childList: true,
+            subtree: true
+        });
+    }
+}
+
+// Main
+
+// Make buttons that navigate to the subscriptions feed trigger normal page loads
+simplifyPageLoader("a[title='Subscriptions']"); // Subscriptions button
+simplifyPageLoader("button#button[aria-label='Switch to grid view']"); // Grid-view button
+
+// Hide hideable videos if on the subscriptions page
+if (isSubscriptionsPage()) {
+    // Call hideNewHideables on page load
+    hideNewHideables();
+    // Call hideNewHideables when new videos are loaded
+    new MutationObserver(hideNewHideables).observe(
+        document.querySelector('ytd-browse[page-subtype="subscriptions"]').querySelector('div#contents'), {
+            childList: true
+        }
+    );
+}
