@@ -154,7 +154,7 @@ function hideNewHideables(newMutations) {
 // Main helpers
 
 function isSubscriptionsPage() {
-    return new RegExp("^.*youtube.com/feed/subscriptions(\\?flow=1)?$").test(document.URL);
+    return new RegExp("^.*youtube.com/feed/subscriptions(\\?flow=1|\\?pbjreload=\\d+)?$").test(document.URL);
 }
 
 function trySetPageLoaderOnclick(pageLoader, cssSelector) {
