@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        YouTube Stream Hider
-// @version     0.1
+// @version     0.2
 // @description Hides streams and premiers from your YouTube subscriptions feed.
 // @match       *://www.youtube.com/*
 // @match       *://youtube.com/*
@@ -154,7 +154,7 @@ function hideNewHideables(newMutations) {
 // Main helpers
 
 function isSubscriptionsPage() {
-    return new RegExp(".*youtube.com/feed/subscriptions.*").test(document.URL);
+    return new RegExp("^.*youtube.com/feed/subscriptions(\\?flow=1)?$").test(document.URL);
 }
 
 function trySetPageLoaderOnclick(pageLoader, cssSelector) {
