@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name        YouTube Stream Hider
-// @version     0.2
-// @description Hides streams and premiers from your YouTube subscriptions feed.
+// @name        YouTube Sub Feed Filter
+// @version     0.3
+// @description Filters undesireable videos from your YouTube subscriptions feed.
 // @match       *://www.youtube.com/*
 // @match       *://youtube.com/*
 // @license     GPLv3 - http://www.gnu.org/licenses/gpl-3.0.en.html
@@ -12,10 +12,13 @@
 // Config
 
 // Please set the config values to your liking!
-// Recognised values are 'true' and 'false'(without the quotes)
-// Setting values to 'true' will cause that type of video to be hidden
-// Note: your configs will be overwritten if you download an update for this script
-let hideConfig = {
+// Change values from `false` to `true` to start hiding streams and premiers.
+// Add regular expression strings to the `channels` array to hide all videos from specific channels.
+// Channel names that are too long for YouTube to display below videos 
+// (e.g. 'A Very Long Channel Name' may be displayed as 'A Very Long Chann...') 
+// should be denoted by their shortened form; Their complete channel name will not be recognised.
+// NOTE: Your configs will be overwritten if you download an update for this script. Consider backing them up!
+let filterConfig = {
     "scheduled": {
         "streams": false, 
         "premiers": false
@@ -27,7 +30,8 @@ let hideConfig = {
     "finished": {
         "streams": false
         // Finished premiers are just regular videos
-    }
+    }, 
+    "channels": ["Example Channel Name :)"]
 };
 
 // Collector helpers
@@ -112,6 +116,35 @@ function hide(element) {
     element.remove();
 }
 
+function getHideableStreamsAndPremiers(videos) {
+    // Collect hideable streams/premiers
+    let hideableVideos = [];
+    if (filterConfig.scheduled.streams)
+        hideableVideos = hideableVideos.concat(getScheduledStreams(videos));
+    if (filterConfig.scheduled.premiers)
+        hideableVideos = hideableVideos.concat(getScheduledPremiers(videos));
+    if (filterConfig.live.streams)
+        hideableVideos = hideableVideos.concat(getLiveStreams(videos));
+    if (filterConfig.live.premiers)
+        hideableVideos = hideableVideos.concat(getLivePremiers(videos));
+    if (filterConfig.finished.streams)
+        hideableVideos = hideableVideos.concat(getFinishedStreams(videos));
+    return hideableVideos;
+}
+
+function getHideableChannelVideos(videos) {
+    let hideableVideos = [];
+    for (let video of videos) {
+        for (let channelRegex of filterConfig.channels) {
+            if (channelRegex.test(video.querySelector("a.yt-formatted-string").innerText)) {
+                hideableVideos.push(video);
+                break;
+            }
+        }
+    }
+    return hideableVideos;
+}
+
 // Hider
 
 function hideNewHideables(newMutations) {
@@ -129,16 +162,11 @@ function hideNewHideables(newMutations) {
     }
     // Hide hideables
     for (let videoSection of videoSections) {
-        // Collect new videos
         let videos = videoSection.querySelectorAll("ytd-grid-video-renderer");
-        // Collect hideable streams/premiers
-        let hideableVideos = [];
-        if (hideConfig.scheduled.streams) hideableVideos = hideableVideos.concat(getScheduledStreams(videos));
-        if (hideConfig.scheduled.premiers) hideableVideos = hideableVideos.concat(getScheduledPremiers(videos));
-        if (hideConfig.live.streams) hideableVideos = hideableVideos.concat(getLiveStreams(videos));
-        if (hideConfig.live.premiers) hideableVideos = hideableVideos.concat(getLivePremiers(videos));
-        if (hideConfig.finished.streams) hideableVideos = hideableVideos.concat(getFinishedStreams(videos));
-        // Hide
+        let hideableVideos = getHideableStreamsAndPremiers(videos);
+        hideableVideos = hideableVideos.concat(
+            getHideableChannelVideos(videos).filter(hideable => !hideableVideos.includes(hideable))
+        );
         if (hideableVideos.length === videos.length) {
             // Hide full section (including title)
             hide(videoSection);
@@ -152,6 +180,10 @@ function hideNewHideables(newMutations) {
 }
 
 // Main helpers
+
+function getRegexArray(stringArray) {
+    return stringArray.map(string => new RegExp(string));
+}
 
 function isSubscriptionsPage() {
     return new RegExp("^.*youtube.com/feed/subscriptions(\\?flow=1|\\?pbjreload=\\d+)?$").test(document.URL);
@@ -190,6 +222,7 @@ function simplifyPageLoader(cssSelector) {
 }
 
 // Main
+filterConfig.channels = filterConfig.channels.map(string => new RegExp(string));
 
 // Make buttons that navigate to the subscriptions feed trigger normal page loads
 simplifyPageLoader("a[title='Subscriptions']"); // Subscriptions button
