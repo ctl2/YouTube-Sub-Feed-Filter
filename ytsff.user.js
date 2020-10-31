@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        YouTube Sub Feed Filter
-// @version     0.4
+// @version     0.5
 // @description Filters your YouTube subscriptions feed.
 // @match       *://www.youtube.com/*
 // @match       *://youtube.com/*
@@ -188,7 +188,8 @@ function getRegexArray(stringArray) {
 }
 
 function isSubscriptionsPage() {
-    return new RegExp("^.*youtube.com/feed/subscriptions(\\?flow=1|\\?pbjreload=\\d+)?$").test(document.URL);
+    return document.querySelector("ytd-expanded-shelf-contents-renderer") === null && // True if on grid-view rather than list-view
+        new RegExp("^.*youtube.com/feed/subscriptions(\\?flow=1|\\?pbjreload=\\d+)?$").test(document.URL);
 }
 
 function trySetPageLoaderOnclick(pageLoader, cssSelector) {
