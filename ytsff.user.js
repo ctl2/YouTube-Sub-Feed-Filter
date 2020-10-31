@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        YouTube Sub Feed Filter
-// @version     0.3
-// @description Filters undesireable videos from your YouTube subscriptions feed.
+// @version     0.4
+// @description Filters your YouTube subscriptions feed.
 // @match       *://www.youtube.com/*
 // @match       *://youtube.com/*
 // @license     GPLv3 - http://www.gnu.org/licenses/gpl-3.0.en.html
@@ -11,27 +11,10 @@
 
 // Config
 
-// Please set the config values to your liking!
-// Change values from `false` to `true` to start hiding streams and premiers.
-// Add regular expression strings to the `channels` array to hide all videos from specific channels.
-// Channel names that are too long for YouTube to display below videos 
-// (e.g. 'A Very Long Channel Name' may be displayed as 'A Very Long Chann...') 
-// should be denoted by their shortened form; Their complete channel name will not be recognised.
-// NOTE: Your configs will be overwritten if you download an update for this script. Consider backing them up!
+// To learn how to write a configuration, see https://greasyfork.org/en/scripts/413818-youtube-sub-feed-filter
+// NOTE: Your config will be overwritten if you download an update for this script. Consider backing it up!
 let filterConfig = {
-    "scheduled": {
-        "streams": false, 
-        "premiers": false
-    }, 
-    "live": {
-        "streams": false, 
-        "premiers": false
-    }, 
-    "finished": {
-        "streams": false
-        // Finished premiers are just regular videos
-    }, 
-    "channels": ["Example Channel Name :)"]
+    
 };
 
 // Collector helpers
@@ -56,93 +39,90 @@ function getMetadataLine(video) {
     return video.querySelector("#metadata-line");
 }
 
-// Scheduled collectors
-
-function getScheduledStreams(videos) {
-    return getFilteredCollection(
-        videos,
-        video => firstWordEquals(getMetadataLine(video).children[0], "Scheduled")
-    );
-}
-
-function getScheduledPremiers(videos) {
-    return getFilteredCollection(
-        videos,
-        video => firstWordEquals(getMetadataLine(video).children[0], "Premieres")
-    );
-}
-
-// Live collectors
-
-function getLiveStreams(videos) {
-    return getFilteredCollection(
-        videos,
-        video => {
-            let liveBadge = getLiveBadge(video);
-            return liveBadge === null ?
-                false :
-                firstWordEquals(liveBadge.querySelector("span.ytd-badge-supported-renderer"), "LIVE");
-        }
-    );
-}
-
-function getLivePremiers(videos) {
-    return getFilteredCollection(
-        videos,
-        video => {
-            let liveBadge = getLiveBadge(video);
-            return liveBadge === null ?
-                false :
-                firstWordEquals(liveBadge.querySelector("span.ytd-badge-supported-renderer"), "PREMIERING");
-        }
-    );
-}
-
-// Finished collectors
-
-function getFinishedStreams(videos) {
-    return getFilteredCollection(
-        videos,
-        video => {
-          let metaDataLine = getMetadataLine(video);
-          return metaDataLine.children.length > 1 && firstWordEquals(metaDataLine.children[1], "Streamed")
-        }
-    );
-}
-
 // Hider helpers
+
+class VideoSectionSplitter {
+    hideables = [];
+    
+    constructor(videoSection) {
+        this.nonHideables = videoSection.querySelectorAll("ytd-grid-video-renderer");
+    }
+    
+    split(channelRegex, titleRegex, predicate = video => true) {
+        let newNonHideables = [];
+        for (let video of this.nonHideables) {
+            if (
+                channelRegex.test(video.querySelector("a.yt-formatted-string").innerText) && 
+                titleRegex.test(video.querySelector("a#video-title").innerText) && 
+                predicate(video)
+            ) {
+                this.hideables.push(video);
+            } else {
+                newNonHideables.push(video);
+            }
+        }
+        this.nonHideables = newNonHideables;
+    }
+    
+    splitScheduledStreams(channelRegex, titleRegex) {
+        this.split(
+            channelRegex, titleRegex, 
+            video => firstWordEquals(getMetadataLine(video).children[0], "Scheduled"),
+        );
+    }
+    
+    splitLiveStreams(channelRegex, titleRegex) {
+        this.split(
+            channelRegex, titleRegex, 
+            video => {
+                let liveBadge = getLiveBadge(video);
+                return liveBadge === null ?
+                    false :
+                    firstWordEquals(liveBadge.querySelector("span.ytd-badge-supported-renderer"), "LIVE");
+            }
+        );
+    }
+    
+    splitFinishedStreams(channelRegex, titleRegex) {
+        this.split(
+            channelRegex, titleRegex, 
+            video => {
+                let metaDataLine = getMetadataLine(video);
+                return metaDataLine.children.length > 1 && firstWordEquals(metaDataLine.children[1], "Streamed")
+            }
+        );
+    }
+    
+    splitScheduledPremiers(channelRegex, titleRegex) {
+        this.split(
+            channelRegex, titleRegex, 
+            video => firstWordEquals(getMetadataLine(video).children[0], "Premieres")
+        );
+    }
+    
+    splitLivePremiers(channelRegex, titleRegex) {
+        this.split(
+            channelRegex, titleRegex, 
+            video => {
+                let liveBadge = getLiveBadge(video);
+                return liveBadge === null ?
+                    false :
+                    firstWordEquals(liveBadge.querySelector("span.ytd-badge-supported-renderer"), "PREMIERING");
+            }
+        );
+    }
+    
+    splitOthers(channelRegex, titleRegex) {
+        this.split(
+            channelRegex, titleRegex, 
+            video => new RegExp("^\\d+ .+ ago$").test(video.querySelector("#metadata-line").children[1].innerText)
+        );
+        
+    }
+}
 
 function hide(element) {
     element.remove();
-}
-
-function getHideableStreamsAndPremiers(videos) {
-    // Collect hideable streams/premiers
-    let hideableVideos = [];
-    if (filterConfig.scheduled.streams)
-        hideableVideos = hideableVideos.concat(getScheduledStreams(videos));
-    if (filterConfig.scheduled.premiers)
-        hideableVideos = hideableVideos.concat(getScheduledPremiers(videos));
-    if (filterConfig.live.streams)
-        hideableVideos = hideableVideos.concat(getLiveStreams(videos));
-    if (filterConfig.live.premiers)
-        hideableVideos = hideableVideos.concat(getLivePremiers(videos));
-    if (filterConfig.finished.streams)
-        hideableVideos = hideableVideos.concat(getFinishedStreams(videos));
-    return hideableVideos;
-}
-
-function getHideableChannelVideos(videos) {
-    let hideableVideos = [];
-    for (let video of videos) {
-        for (let channelRegex of filterConfig.channels) {
-            if (channelRegex.test(video.querySelector("a.yt-formatted-string").innerText)) {
-                hideableVideos.push(video);
-                break;
-            }
-        }
-    }
-    return hideableVideos;
 }
 
 // Hider
@@ -160,20 +140,42 @@ function hideNewHideables(newMutations) {
             }
         }
     }
-    // Hide hideables
     for (let videoSection of videoSections) {
-        let videos = videoSection.querySelectorAll("ytd-grid-video-renderer");
-        let hideableVideos = getHideableStreamsAndPremiers(videos);
-        hideableVideos = hideableVideos.concat(
-            getHideableChannelVideos(videos).filter(hideable => !hideableVideos.includes(hideable))
-        );
-        if (hideableVideos.length === videos.length) {
+        // Collect hideables and non-hideables
+        let videoSectionSplitter = new VideoSectionSplitter(videoSection);
+        for (let channel of Object.getOwnPropertyNames(filterConfig)) {
+            let channelConfig = filterConfig[channel];
+            let channelRegex = new RegExp(channel);
+            if (channelConfig.hasOwnProperty("streams")) {
+                if (channelConfig.streams.hasOwnProperty("scheduled")) {
+                    videoSectionSplitter.splitScheduledStreams(channelRegex, new RegExp(channelConfig.streams.scheduled));
+                }
+                if (channelConfig.streams.hasOwnProperty("live")) {
+                    videoSectionSplitter.splitLiveStreams(channelRegex, new RegExp(channelConfig.streams.live));
+                }
+                if (channelConfig.streams.hasOwnProperty("finished")) {
+                    videoSectionSplitter.splitFinishedStreams(channelRegex, new RegExp(channelConfig.streams.finished));
+                }
+            }
+            if (channelConfig.hasOwnProperty("premiers")) {
+                if (channelConfig.premiers.hasOwnProperty("scheduled")) {
+                    videoSectionSplitter.splitScheduledPremiers(channelRegex, new RegExp(channelConfig.premiers.scheduled))
+                }
+                if (channelConfig.premiers.hasOwnProperty("live")) {
+                    videoSectionSplitter.splitLivePremiers(channelRegex, new RegExp(channelConfig.premiers.live))
+                }
+            }
+            if (channelConfig.hasOwnProperty("others")) {
+                videoSectionSplitter.splitOthers(channelRegex, new RegExp(channelConfig.others))
+            }
+        }
+        if (videoSectionSplitter.nonHideables.length === 0) {
             // Hide full section (including title)
             hide(videoSection);
         } else {
             // Hide hideable videos
-            for (let hideableVideo of hideableVideos) {
-                hide(hideableVideo);
+            for (let hideable of videoSectionSplitter.hideables) {
+                hide(hideable);
             }
         }
     }
@@ -221,8 +223,99 @@ function simplifyPageLoader(cssSelector) {
     }
 }
 
+function getMergedConfigs() {
+    if (!filterConfig.hasOwnProperty("soft")) filterConfig["soft"] = {};
+    if (!filterConfig.hasOwnProperty("hard")) filterConfig["hard"] = {};
+    // Try for a straightforward merge
+    let hardChannels = Object.keys(filterConfig.hard);
+    if (hardChannels.length === 0) return filterConfig["soft"];
+    if (hardChannels.includes("")) return {"": filterConfig.hard[""]};
+    // Use non-overwriting channel regex, based on the keys in `filterConfig["soft"]`, to merge non-hard and hard configs
+    let mergedConfigs = {...filterConfig.hard};
+    let negativeLookaheadString =  "(?!.*(" + hardChannels.join("|") + "))^.*";
+    for (let softChannel of Object.keys(filterConfig["soft"])) {
+        mergedConfigs[negativeLookaheadString + softChannel] = filterConfig["soft"][softChannel];
+    }
+    return mergedConfigs;
+}
+
+function flattenRegex(object) {
+    for (let property of Object.keys(object)) {
+        if (typeof object[property] === "object") {
+            if (Array.isArray(object[property])) {
+                object[property] = "(" + object[property].join("|") + ")";
+            } else {
+                flattenRegex(object[property]);
+            }
+        }
+    }
+}
+
+function spreadDefaultConfig(channelConfig) {
+    let defaultConfig = channelConfig.default;
+    if (!channelConfig.hasOwnProperty("streams")) {
+        channelConfig.streams = {
+            "scheduled": defaultConfig,
+            "live": defaultConfig, 
+            "finished": defaultConfig
+        };
+    } else {
+        if (!channelConfig.streams.hasOwnProperty("scheduled")) {
+            channelConfig.streams.scheduled = defaultConfig;
+        }
+        if (!channelConfig.streams.hasOwnProperty("live")) {
+            channelConfig.streams.live = defaultConfig;
+        }
+        if (!channelConfig.streams.hasOwnProperty("finished")) {
+            channelConfig.streams.finished = defaultConfig;
+        }
+    }
+    if (!channelConfig.hasOwnProperty("premiers")) {
+        channelConfig.premiers = {
+            "scheduled": defaultConfig,
+            "live": defaultConfig
+        };
+    } else {
+        if (!channelConfig.premiers.hasOwnProperty("scheduled")) {
+            channelConfig.premiers.scheduled = defaultConfig;
+        }
+        if (!channelConfig.premiers.hasOwnProperty("live")) {
+            channelConfig.premiers.live = defaultConfig;
+        }
+    }
+    if (!channelConfig.hasOwnProperty("others")) {
+        channelConfig.others = defaultConfig;
+    }
+}
+
+function buildConfigBranches() {
+    for (let channel of Object.keys(filterConfig)) {
+        let channelConfig = filterConfig[channel];
+        if (channelConfig.hasOwnProperty("default")) {
+            spreadDefaultConfig(channelConfig);
+        } else {
+            if (typeof channelConfig.streams === "string") {
+                channelConfig.streams = {
+                    "scheduled": channelConfig.streams,
+                    "live": channelConfig.streams, 
+                    "finished": channelConfig.streams
+                };
+            }
+            if (typeof channelConfig.premiers === "string") {
+                channelConfig.premiers = {
+                    "scheduled": channelConfig.premiers,
+                    "live": channelConfig.premiers
+                };
+            }
+        }
+    }
+}
+
 // Main
-filterConfig.channels = filterConfig.channels.map(string => new RegExp(string));
+
+filterConfig = getMergedConfigs();
+flattenRegex(filterConfig);
+buildConfigBranches();
 
 // Make buttons that navigate to the subscriptions feed trigger normal page loads
 simplifyPageLoader("a[title='Subscriptions']"); // Subscriptions button

@@ -1,5 +1,5 @@
-# YouTube Stream Hider
+# YouTube Sub Feed Filter
 
-YouTube Stream Hider is a configurable user script for hiding streams and premiers from your YouTube subscriptions feed.
+YouTube Sub Feed Filter is a highly configurable user script for filtering the videos in your YouTube subscriptions feed.
 
-Greasy Fork: https://greasyfork.org/en/scripts/413818-youtube-stream-hider
+Greasy Fork: https://greasyfork.org/en/scripts/413818-youtube-sub-feed-filter
