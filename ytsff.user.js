@@ -224,17 +224,17 @@ function simplifyPageLoader(cssSelector) {
 }
 
 function getMergedConfigs() {
-    if (!filterConfig.hasOwnProperty("soft")) filterConfig["soft"] = {};
-    if (!filterConfig.hasOwnProperty("hard")) filterConfig["hard"] = {};
+    if (!filterConfig.hasOwnProperty("soft")) filterConfig.soft = {};
+    if (!filterConfig.hasOwnProperty("hard")) filterConfig.hard = {};
     // Try for a straightforward merge
     let hardChannels = Object.keys(filterConfig.hard);
-    if (hardChannels.length === 0) return filterConfig["soft"];
+    if (hardChannels.length === 0) return filterConfig.soft;
     if (hardChannels.includes("")) return {"": filterConfig.hard[""]};
-    // Use non-overwriting channel regex, based on the keys in `filterConfig["soft"]`, to merge non-hard and hard configs
+    // Use non-overwriting channel regex, based on the keys in `filterConfig.soft`, to merge soft and hard configs
     let mergedConfigs = {...filterConfig.hard};
     let negativeLookaheadString =  "(?!.*(" + hardChannels.join("|") + "))^.*";
-    for (let softChannel of Object.keys(filterConfig["soft"])) {
-        mergedConfigs[negativeLookaheadString + softChannel] = filterConfig["soft"][softChannel];
+    for (let softChannel of Object.keys(filterConfig.soft)) {
+        mergedConfigs[negativeLookaheadString + softChannel] = filterConfig.soft[softChannel];
     }
     return mergedConfigs;
 }
